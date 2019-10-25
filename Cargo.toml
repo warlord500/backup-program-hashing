@@ -1,0 +1,9 @@
+[package]
+name = "incremental_backup"
+version = "0.1.0"
+authors = ["jadon belezos <jjbelezos@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+ring = "0.16.0"
+data-encoding = "2.1.2"

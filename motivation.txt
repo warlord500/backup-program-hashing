@@ -1,0 +1,33 @@
+this is a motivational file. 
+it is my battle plan. 
+
+I need backup system thats meets these demands needs to be faster than 
+rsync while able to retain or transfer move information.
+its needs to be able to not create excess duplicates. 
+it is not a version system. 
+it is not a cache system. 
+this system works with immutable data only. meaning technically data doesn't change ever. 
+the backups can only add data at most. deleting is not needed or required.
+restructuring so the data has the same organization as the base system is necessary. 
+
+
+its only goal is to move data from one file system to another as fast as possible! 
+
+
+actual steps of execution
+
+the battle plan, 
+use hashes from files to compare for both systems. 
+if hashes matchup, then that file can be ignored. 
+if hashes dont matchup then that file needs to be transferred.
+the transferred goes in the same relative location as the origin system. 
+if the origin system has a file with different relative location as the recvier 
+the receiver will move file to match origin. 
+
+
+
+notes more actual steps:
+step 1: get hashes for file. 
+step 2: figure out decent storage,(thinking sql, plain text)
+step 3: work small figure  for one file then whole folder then sub folders.
+ 
