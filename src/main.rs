@@ -1,11 +1,12 @@
 extern crate data_encoding;
 extern crate ring;
+extern crate lapp;
 
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, Digest, SHA256};
 use std::fs::File;
 use std::io::{BufReader, Read,Result};
-use std::path::Path;
+use std::path::{Path,PathBuf};
 use std::time::Instant;
 use std::collections::{HashMap,HashSet};
 use std::fs;
@@ -59,11 +60,11 @@ fn generate_cache(the_path: &Path,  cache : &mut HashMap<String,String>) -> Resu
 					 let digest = sha256_digest(BufReader::new(File::open(&path)?))?;
 					 
 					 let duration  = Instant::now().duration_since(before).as_millis();
-					 let file_name = path.file_stem().unwrap().to_string_lossy();
+					 let file_name = path.file_name().unwrap().to_string_lossy().into();
 					 
 					 println!("processing: {} in {}",file_name, duration);
 					 
-					cache.insert(HEXUPPER.encode(digest.as_ref()), file_name.into());
+					cache.insert(HEXUPPER.encode(digest.as_ref()), file_name);
 					 
 				} else  if path.is_dir() {
 					generate_cache(path.as_path(),cache)?
@@ -75,24 +76,43 @@ fn generate_cache(the_path: &Path,  cache : &mut HashMap<String,String>) -> Resu
 		}
 		Ok(())
 }
-fn proccess_one_way(src_to_move : HashSet<String>,
-					cache_set   :  HashMap<String,String>,
-					dest_cache_set   :  HashMap<String,String>) -> Result<()>
+fn proccess_one_way(src_to_move : HashSet<&String>,
+					cache       : &HashMap<String,String>, 
+					dest_cache  : &HashMap<String,String>, 
+					src_loc     : &mut PathBuf,
+					dest_loc    : &mut PathBuf) {
+	/*proccessing hash list */
+	
+	for item in src_to_move {
+		let orgName = cache.get(&*item).unwrap();
+		src_loc.push(orgName);
+		dest_loc.push(dest_cache.get(&*item).unwrap_or(orgName));
+		match fs::copy(&src_loc,&dest_loc) {
+			Err(_e) => {
+				// write!(stderr, e.message()) ugh 
+			},
+			Ok(_) => {
+				src_loc.pop();
+				dest_loc.pop();
+			}
+		}
+	}
+}
 
 fn main() -> Result<()> {
-	let src_folder = "E:\\programming\\test\\incremental_backup_test_data\\src";
-	let dest_folder = "E:\\programming\\test\\incremental_backup_test_data\\dest";
+	let mut  src_folder = PathBuf::from("E:\\programming\\test\\incremental_backup_test_data\\src");
+	let mut  dest_folder = PathBuf::from("E:\\programming\\test\\incremental_backup_test_data\\dest");
 	
 	let mut cache = HashMap::<String,String>::new();
-	generate_cache(Path::new(src_folder),&mut cache)?;
+	generate_cache(&*src_folder,&mut cache)?;
 	
 	let mut dest_cache = HashMap::<String,String>::new();
-	generate_cache(Path::new(dest_folder), &mut dest_cache)?;
+	generate_cache(&*dest_folder, &mut dest_cache)?;
 	
 	
 	// if this program is set to one way move
 	// dest_to_move is ignored!!
-	let (src_to_move,dest_to_move)  = {
+	let (src_to_move,_dest_to_move)  = {
 		//get all the hashes
 		let cache_set = cache.keys().collect::<HashSet<_>>();
 		let dest_cache_set = dest_cache.keys().collect::<HashSet<_>>();
@@ -104,12 +124,8 @@ fn main() -> Result<()> {
 	};
 	
 	/*proccessing hash list */
-	
-	for item in src_to_move {
-		let src = cache.get(item).unwrap();
-		let dest = dest_cache.get(item).unwrap();
-		fs::copy(src,dest)?;
-	}
+	print!("{:?}", src_to_move);
+	proccess_one_way(src_to_move,&cache, &dest_cache,&mut src_folder,&mut dest_folder);
 	
 	Ok(())
 }

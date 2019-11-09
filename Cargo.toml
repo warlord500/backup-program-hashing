@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 ring = "0.16.0"
 data-encoding = "2.1.2"
+lapp = "0.4.0"
