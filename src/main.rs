@@ -38,18 +38,13 @@ fn filter_path(the_path : &Path) -> bool {
 	// you want to filter hidden items
 	!hidden 
 }
-/* At this point I have not decided how i am going to deal with the hashes.
-	my first thought is to put them all in a big hashset to deal with
-	the hashset contains a tuple of (hash,file_name) 
-	which would work but i wondering how big this is gonna get because i need this to be faster than
-	rsync by a lot. 
-	if it was faster, and dealt with organization better than i would be far less infuriated by it. 
-	every system, i have seen just deals with the timing and scheduling stuff. 
-	which would be nice to work with too. but that is beyond the scope of this project.
-	
-  
-*/
-fn generate_cache(the_path: &Path,  cache : &mut HashMap<String,String>) -> Result<()> { 
+/* use mutable reference so that dont generate mutiple hashmaps just a single one
+	when this code is ran recursively.
+*/ 
+fn generate_cache(the_path       : &Path,  
+				  cache          : &mut HashMap<String,String>,
+			      shouldRecurse  : bool) -> Result<()> {
+ 	
 	for entry in std::fs::read_dir(the_path)? {
 			let entry = entry?;
 			let path = entry.path();
@@ -66,8 +61,8 @@ fn generate_cache(the_path: &Path,  cache : &mut HashMap<String,String>) -> Resu
 					 
 					cache.insert(HEXUPPER.encode(digest.as_ref()), file_name);
 					 
-				} else  if path.is_dir() {
-					generate_cache(path.as_path(),cache)?
+				} else  if path.is_dir() && shouldRecurse {
+					generate_cache(path.as_path(),cache,shouldRecurse)?
 				} else {
 					//do something when we have a shortcut
 				}
@@ -84,9 +79,9 @@ fn proccess_one_way(src_to_move : HashSet<&String>,
 	/*proccessing hash list */
 	
 	for item in src_to_move {
-		let orgName = cache.get(&*item).unwrap();
-		src_loc.push(orgName);
-		dest_loc.push(dest_cache.get(&*item).unwrap_or(orgName));
+		let org_name = cache.get(&*item).unwrap();
+		src_loc.push(org_name);
+		dest_loc.push(org_name);
 		match fs::copy(&src_loc,&dest_loc) {
 			Err(_e) => {
 				// write!(stderr, e.message()) ugh 
@@ -100,17 +95,28 @@ fn proccess_one_way(src_to_move : HashSet<&String>,
 }
 
 fn main() -> Result<()> {
-	let mut  src_folder = PathBuf::from("E:\\programming\\test\\incremental_backup_test_data\\src");
-	let mut  dest_folder = PathBuf::from("E:\\programming\\test\\incremental_backup_test_data\\dest");
+	let args = lapp::parse_args("
+	A quick backup program that is faster than rsync for a large number of files.
+	-r, --disable_recursion 
+	-w, --one_way 
+	<src> (path) the source directory important in one_way mode.
+	<dest> (path) the destination
+	");
+	
+	let mut  src_folder = args.get_path_result("src").expect("source argument to be vaild");
+	let mut  dest_folder = args.get_path_result("dest").expect("destination argument to be valid");
+	let should_recurse = !args.get_bool("disable_recursion"); //normally run recursively
+	let one_way = args.get_bool("one_way");
 	
 	let mut cache = HashMap::<String,String>::new();
-	generate_cache(&*src_folder,&mut cache)?;
+	generate_cache(&*src_folder,&mut cache,should_recurse)?;
+	let cache = cache;
 	
 	let mut dest_cache = HashMap::<String,String>::new();
-	generate_cache(&*dest_folder, &mut dest_cache)?;
+	generate_cache(&*dest_folder, &mut dest_cache,should_recurse)?;
+	let dest_cache = dest_cache;
 	
-	
-	// if this program is set to one way move
+	// if this program is set to one way move;
 	// dest_to_move is ignored!!
 	let (src_to_move,_dest_to_move)  = {
 		//get all the hashes
@@ -126,6 +132,5 @@ fn main() -> Result<()> {
 	/*proccessing hash list */
 	print!("{:?}", src_to_move);
 	proccess_one_way(src_to_move,&cache, &dest_cache,&mut src_folder,&mut dest_folder);
-	
 	Ok(())
 }
